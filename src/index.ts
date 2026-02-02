@@ -3,6 +3,11 @@ import { http } from '@lucid-agents/http';
 import { createAgentApp } from '@lucid-agents/hono';
 import { payments, paymentsFromEnv } from '@lucid-agents/payments';
 import { z } from 'zod';
+import { readFileSync } from 'fs';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const agent = await createAgent({
   name: 'earthquake-intel',
@@ -403,6 +408,37 @@ addEntrypoint({
       },
     };
   },
+});
+
+// === SERVE ICON ===
+app.get('/icon.png', (c) => {
+  try {
+    const icon = readFileSync(join(__dirname, '..', 'icon.png'));
+    return new Response(icon, {
+      headers: { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=86400' }
+    });
+  } catch {
+    return c.json({ error: 'Icon not found' }, 404);
+  }
+});
+
+// === ERC-8004 REGISTRATION ===
+app.get('/.well-known/erc8004.json', (c) => {
+  const baseUrl = 'https://earthquake-intel-production.up.railway.app';
+  return c.json({
+    type: "https://eips.ethereum.org/EIPS/eip-8004#registration-v1",
+    name: "earthquake-intel",
+    description: "Real-time earthquake intelligence from USGS. Track seismic activity worldwide, get alerts for regions, and assess earthquake risk. Endpoints: overview (free), lookup ($0.001), search ($0.002), top ($0.002), compare ($0.003), report ($0.005).",
+    image: `${baseUrl}/icon.png`,
+    services: [
+      { name: "web", endpoint: baseUrl },
+      { name: "A2A", endpoint: `${baseUrl}/.well-known/agent.json`, version: "0.3.0" }
+    ],
+    x402Support: true,
+    active: true,
+    registrations: [],
+    supportedTrust: ["reputation"]
+  });
 });
 
 const port = Number(process.env.PORT ?? 3000);
